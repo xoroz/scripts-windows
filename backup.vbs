@@ -3,8 +3,6 @@
 '05/06/2017
 'Version 1.0 
 
-'PRE-REQ: spawnshadow robocopy
-
 'DONE:
 'OK - Set List to be backuped in array and text file 
 'OK - PST using shadowspawn and robocopy  
@@ -88,7 +86,7 @@ strUserName = objShell.ExpandEnvironmentStrings("%USERNAME%")
 '------------------ EDIT HERE -------------------------
 verbose = 1
 logging = 1 
-strTargetG = "\\172.7.112.8\backup\" 
+strTargetG = "\\%USERDOMAIN%\backup\" 'IMPORTANT: EDIT ALSO LINE 200 INSIDE THE SUB DOBACKUP (MUST END WITH "\")
 arrFileInclude = Array("pst","pdf","doc","docx","txt","csv","ods","xlsx","xls","xlsm","ppt","pptx","msg")
 arrFolderInclude  = Array("Documents","Desktop")
 intConcBkp = 1 ' HOW MANY BACKUPS CAN RUN AT THE SAME TIME 
@@ -255,7 +253,7 @@ Sub Dobackup()
 				end if
 				
 			elseif ( return <> 0 ) then 
-				pt "OUTPUT: " & return 
+				pt "ERROR_CODE: " & return 
 			end if       
 		'elseif CheckList(strFilename) = 1 then 
 			'pt "File: " & strFileName & " already backuped today"
