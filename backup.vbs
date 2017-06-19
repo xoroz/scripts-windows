@@ -97,9 +97,8 @@ strSearchD=right(strSearchD,len(strSearchD)-3)
 '------------------ EDIT HERE -------------------------
 verbose = 1
 logging = 1 
-strTargetG = "\\172.27.112.8\b\" 'IMPORTANT: EDIT ALSO LINE 200 INSIDE THE SUB DOBACKUP (MUST END WITH "\")
+strTargetG = "\\192.2.1.2\b\" 'IMPORTANT: EDIT ALSO LINE 200 INSIDE THE SUB DOBACKUP (MUST END WITH "\")
 arrFileInclude = Array("pst","pdf","doc","docx","txt","csv","ods","xlsx","xls","xlsm","ppt","pptx","msg")
-'arrFileInclude = Array("pst")
 arrFolderInclude  = Array("Documents","Desktop")
 intConcBkp = 3 ' HOW MANY BACKUPS CAN RUN AT THE SAME TIME 
 IntMaxCountError = 3 'MAX NUMBER OF ERRORS BEFORE QUITING THE SCRIPT 
