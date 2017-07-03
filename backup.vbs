@@ -1,7 +1,7 @@
 'Script to backup PC Desktops 
 'Felipe Ferreira
 '05/06/2017
-'Version 1.0 
+'Version 1.8
 
 'DONE:
 'OK - Set List to be backuped in array and text file 
@@ -14,13 +14,19 @@
 'OK - 3-Before doing copy check if already on the today list if it is do not copy it (MUST for PST)
 'OK - Permission on Destination folder should be set for User and Admin ONLY:  CACLS files /e /p {USERNAME}:{PERMISSION}
 'OK - Limiti bandwidth for .PST files, over 1GB - can be done with robocopy (10m)
-'OK - Control max number of backups to run at the same time 
 'OK - .PST shows copy window
 'OK - 7zip PST before uploading 
+'OK - Add user Office to the data path and control path 
+'OK - Control max number of backups to run at the same time, sleep untill can run it  (check in my office how many .lock files exists)
+
+'TODO:
+'HTML page to see who is running backup (scan control dir for .locks print names in HTML file ) 
 
 'BUG:
-'New user could not create directory (permission denied), script keep going trying to copy files to a non existent directory\path ERROR_CODE: 16
-'ROBOCOPY ERRORE: memoria insufficiente. Robocopy verr… chiuso.ROBOCOPY ERRORE: parametro non valido n. %d: "%s"
+' CONTROL FOLDER PERMISSION IS USERONLY, NOT GOOD
+
+'OK - FIXED : New user could not create directory (permission denied), script keep going trying to copy files to a non existent directory\path ERROR_CODE: 16
+'OK - FIXED :ROBOCOPY ERRORE: memoria insufficiente. Robocopy verr… chiuso.ROBOCOPY ERRORE: parametro non valido n. %d: "%s"
 
 
 'POSSIBLE BUG:
@@ -64,12 +70,16 @@ Const ForReading = 1 : Const ForWriting = 2 : Const ForAppending = 8
 		
 'Declare Generic Variables 
 Dim objfso,ldr,objFolder,objShell,debug,strSearchD,strLog,strLogRobo,strFileList,strTargetG,strUserDir,strUserName,StrFileLock,strLockDir,intConcBkp
+Dim arrOffices,strMyoffice
 
 'Declare Arrays
 Dim arrFiles,arrFileInclude,arrFolderInclude,arrFileLines1
 
 'Declare Counter,Timer
 Dim timerS,timerE,timerD,timeDS,timerDT,intCountSize,intCountFiles,intCountFilesCopied,IntCountError
+
+
+
 
 'Initialize Variables 
 IntCountError = 0
@@ -97,26 +107,47 @@ strSearchD=right(strSearchD,len(strSearchD)-3)
 '------------------ EDIT HERE -------------------------
 verbose = 1
 logging = 1 
-strTargetG = "\\192.2.1.2\b\" 'IMPORTANT: EDIT ALSO LINE 200 INSIDE THE SUB DOBACKUP (MUST END WITH "\")
-arrFileInclude = Array("pst","pdf","doc","docx","txt","csv","ods","xlsx","xls","xlsm","ppt","pptx","msg")
+strTargetG = "\\172.1.1.1\b\" 'IMPORTANT: EDIT ALSO LINE 200 INSIDE THE SUB DOBACKUP (MUST END WITH "\")
+strTargetG = "g:\backup\" 
+'arrFileInclude = Array("pst","pdf","doc","docx","txt","csv","ods","xlsx","xls","xlsm","ppt","pptx","msg")
+arrFileInclude = Array("pst","xls","xlsm","ppt","pptx","msg")
+'arrFileInclude = Array("pst")
 arrFolderInclude  = Array("Documents","Desktop")
-intConcBkp = 3 ' HOW MANY BACKUPS CAN RUN AT THE SAME TIME 
+intConcBkp = 1 ' HOW MANY BACKUPS CAN RUN AT THE SAME TIME 
 IntMaxCountError = 3 'MAX NUMBER OF ERRORS BEFORE QUITING THE SCRIPT 
+arrOffices = Array("Canada")  'OPTIONAL
 '------------------ DONE EDIT -------------------------
 
-strLockDir = strTargetG & "CONTROL"
-strUserDir = strTargetG & strSearchD 
+strMyoffice = getuserOffice(strUserName)
+wscript.echo "MY OFFICE IS AT: " & strMyOffice
+if CheckOffice(strMyOffice) = 1 then 
+ pt "OK Office " & strMyOffice & " is valid"
+else 
+ pt "WARNING Office " & strMyOffice & " is NOT valid using name: Others"
+ strMyOffice = "Others"
+end if 
+
+strLockDir = strTargetG & "CONTROL" & "\" & strMyOffice
+strUserDir = strTargetG & strMyOffice & "\" & strSearchD 
+pt "CONTROLR DIR: " & strLockDir
+pt "USER DATA DIR: " & strUserDir 
+'wscript.quit 0
 
 
 'START LOCK CONTROLS (IF ANY BACKUP IS CURRENTLY RUNNING QUIT)
 Call checkdir(strlockdir)
-StrFileLock = strlockdir & "\bkp_" & strusername & "_" & timeStamp & ".lock"
+StrFileLockO = "bkp_" & strusername & "_" & timeStamp & ".lock"
+StrFileLock = strlockdir & "\" & strFileLockO
 
-if checkiflock() = 1 then    
- wscript.quit 2
-else 
- call createLock()
-end if 
+'Should Wait untill it can run 
+Do 
+intLock = checkiflock()
+Loop Until intlock = 0
+'if checkiflock() = 1 then    
+' sleep 10 
+' wscript.quit 2
+call createLock()
+'end if 
 'END LOCK CONTROL 
 
 
@@ -158,7 +189,7 @@ TimerE = Timer()
 TimerDS = FormatNumber(TimerE - TimerS, 1)
 pt vbcrlf &  "Sync/Copy Time: " &  TimerDS & " seconds"
 'Call SetACL() - Too much network usage for this cmd (should run local on the server side)
-pt "Backup data and logs at: " & strTargetG & strSearchD 
+pt "Backup data and logs at: " & strTargetG & strMyOffice & "\" & strSearchD 
 'TimerDT = TimerDS + TimerD
 'pt vbcrlf & "Total Time: " &  TimerDT & " seconds"
 call RemoveLock()
@@ -202,7 +233,7 @@ Function FilterFile(oFile)
     'pt "Checking: " & oFile 
 	For each ext in arrFileInclude		
 		If UCase(objFSO.GetExtensionName(oFile)) = Ucase(ext) Then
-		 FilterFile = "1"		
+			FilterFile = "1"		
 		end if 
 	Next  
 end Function  
@@ -212,13 +243,11 @@ Function FilterFolder(oFolder)
 	For each folder in arrFolderInclude		
 		'pt "Folder Filter: " & UCASE(strFolder) & " = " &  UCASE(Folder)
 		If instr(UCase(OFolder),Ucase(folder)) Then
-	     'pt "Found Folder Filter: " & UCASE(oFolder)
-		 FilterFolder = "1"		
+			'pt "Found Folder Filter: " & UCASE(oFolder)
+			FilterFolder = "1"		
 		end if 
 	Next  
 end Function 
-
-
 
 Sub Dobackup()
 'get array of files to backup and execute robocopy
@@ -229,7 +258,8 @@ Sub Dobackup()
 	intTotal = Ubound(arrFiles) 
 	pt vbcrlf & "Starting sync/copy " & intTotal + 1 & " files to " & strUserDir 
 	For i = 0 to intTotal 
-		strTarget = strTargetG
+		strTarget = strTargetG & strMyOffice & "\" 
+		'strTarget = strUserDir 
 	    strDir=""
 		strCmdZip = ""
 	    intLast=0
@@ -246,6 +276,7 @@ Sub Dobackup()
 			if (it = intLast - 1) then 		
 				strdir = strdir  & cstr(arrSplit(it))
 				strTarget = strTarget & cstr(arrSplit(it))
+				
 			else
 				strdir = strdir  & cstr(arrSplit(it)) & "\"
 				if (it <> 0) then 						
@@ -253,6 +284,7 @@ Sub Dobackup()
 				end if 
 			end if 
 		next 
+		'pt "TARGET COPY FILE TO: "  & strTarget
 		strFilename = arrSplit(intLast)		
 		if CheckList(strFilename) = 0 then 
 		Set oShell = WScript.CreateObject ("WScript.Shell")
@@ -385,30 +417,104 @@ sub checkdir(strD)
 			wscript.quit 3
 		 end if 
 		WScript.Sleep 300
-		call SetACL(strD)
+		'NOT FOR CONTROL DIR 
+		if instr(strD,"CONTROL") then 
+			pt "DEBUG: Not setting ACL for Control folder: " & strD 
+		else
+			call SetACL(strD)
+		end if 
 	end if 
 	Set fso = nothing
 	Set objShell = nothing 	
 end sub 
 
 function checkiflock()
+	Dim intLockCount,strRunningBkps
+	intLockCount = 0
 'CHECK IF ANY BACKUP IS CURRENTLY RUNNING, IF SO CANCEL THIS ONE 
-	Set fso = CreateObject("Scripting.FileSystemObject")
+	Set fso = CreateObject("Scripting.FileSystemObject")		
 	If NOT (ObjFSO.FolderExists(strLockDir)) Then
 		pt "ERROR - Foler " & strLockDir & " not found!" 
 		wscript.quit 2
 	else
-		Set folder = fso.GetFolder(strLockDir)
-		if folder.files.Count <= intConcBkp then
-			pt "OK - " & folder.files.Count & " backups running in " & strLockDir
-			checkiflock = 0
-		else	
-			pt "OPS - already " & folder.files.Count & " backups running, Max is " & intConcBkp & ". Maybe Delete Lock file in " & strLockDir
-			checkiflock = 1
-		end if
+		Set folder = fso.GetFolder(strLockDir)		
+		Set Files = Folder.Files
+		For Each File in Files
+'look for lock files but not if same computer name 	 'StrFileLockO	
+        if instr(File.name,".lock") then
+			if NOT (instr(File.name, strUserName) > 0) then 
+				'pt File.Name
+				strRunningBkps = strRunningBkps & " " & File.Name
+				'Maybe get how long it has been running ? intLastMod = CDATE(objfile.DateLastModified)						
+				intLockCount = intLockCount + 1
+			end if 
+		end if 
+		next		
 	end if 
+	
+	if intLockCount <= intConcBkp then
+		pt "OK - " & intLockCount & " backups running in " & strLockDir
+		checkiflock = 0
+	else	
+		pt "WARNING - already " & intLockCount & " backups running, Max is " & intConcBkp 
+		'". Maybe Delete Lock file in " & strLockDir		
+		pt "Backups Running: " & strRunningBkps
+		pt "Waiting..."
+		WScript.Sleep 5000		
+		checkiflock = 1
+	end if
+	
 	Set fso = nothing
 end function 
+
+function getuserOffice(strUser)
+'Will search Active Directory for User OU and Office 
+	Dim arrPath,intLength,strQuery,ObjCommand,objConnection,objRecordSet,strDN,strOffice
+	arrpath = Array()
+	intLength = 0
+	wscript.echo "Searching AD for user office of " & strUser 
+	strQuery = "SELECT distinguishedName FROM 'LDAP://ou=DMGROUP,dc=dm,dc=loc' WHERE objectCategory='user' AND sAMAccountName=" & chr(39) & strUser & chr(39) 
+	'wscript.echo strQuery 
+	Const ADS_SCOPE_SUBTREE = 2
+	Set objConnection = CreateObject("ADODB.Connection")
+	Set objCommand =   CreateObject("ADODB.Command")
+	objConnection.Provider = "ADsDSOObject"
+	objConnection.Open "Active Directory Provider"
+	Set objCommand.ActiveConnection = objConnection
+	ObjCommand.Properties("Page Size") = 10000
+	objCommand.Properties("Timeout") = 20
+	objCommand.Properties("Cache Results") = False
+	objCommand.Properties("Searchscope") = ADS_SCOPE_SUBTREE 	
+	objCommand.CommandText = chr(34) & strQuery & chr(34)
+	objCommand.CommandText = strQuery
+	Set objRecordSet = objCommand.Execute
+	ObjRecordSet.MoveFirst
+	Do Until objRecordSet.EOF
+	    strDN = objRecordSet.Fields("distinguishedName").Value
+		Wscript.Echo strDN
+		arrPath = Split(strDN, ",")		
+		intLength = Len(arrPath(2))						
+		wscript.echo Right(arrPath(2),intLength - 3)		
+		strOffice=Right(arrPath(2),intLength - 3)				
+		getuserOffice = strOffice
+		objRecordset.Close
+		objConnection.close
+		exit function 
+		'objRecordSet.MoveNext
+	Loop
+	objRecordset.Close
+	objConnection.close
+end function 
+
+Function CheckOffice(strOfficeP)
+	Dim sO 	    
+	For each sO in arrOffices		
+		If strOfficeP = sO Then
+		 CheckOffice = "1"		
+		 exit function 
+		end if 
+	Next  
+end Function
 
 sub createLock()
 	Set fso = CreateObject("Scripting.FileSystemObject").OpenTextFile(strFileLock, ForAppending, True )
