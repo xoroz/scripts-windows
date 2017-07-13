@@ -20,8 +20,8 @@ intShowCmd=0
 
 
 intPort=":" & WScript.Arguments.Item(0)
-intWARN=WScript.Arguments.Item(1)
-intCRIT=WScript.Arguments.Item(2)
+intWARN=cint(WScript.Arguments.Item(1))
+intCRIT=cint(WScript.Arguments.Item(2))
 
 
 '--------- MAIN ----------
@@ -31,10 +31,10 @@ parsefile
 strMSG="There are " & intCountEsta & " connections Established on port " & WScript.Arguments.Item(0) & " |connections=" & intCountEsta
 
 if (intCountEsta > intCRIT) then
- pt "CRITICAL - " & strMSG
+ pt "CRITICAL - " & intCRIT & " ," & strMSG
  wscript.quit 2
 elseif (intCountEsta > intWARN) then
- pt "WARNING - " & strMSG
+ pt "WARNING -  warning = " & intWARN & " connections, " & strMSG
  wscript.quit 1
 else
  pt "OK - " & strMSG
@@ -59,7 +59,7 @@ on error resume next
 	Set objFSO = CreateObject("Scripting.FileSystemObject")		
 	if objfso.FileExists(strLogFile)   Then
 		Set objFile = objFSO.OpenTextFile(strLogFile, ForReading)
-		intCountEsta = trim(objFile.ReadLine)
+		intCountEsta = cint(objFile.ReadLine)
 	end if 	
 end function
 
@@ -70,5 +70,3 @@ sub pt(txtmsg)
 		WScript.stdout.WriteLine(txtmsg)
 	end if	
 end sub 
-
-
