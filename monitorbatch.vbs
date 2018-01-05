@@ -132,11 +132,11 @@ sub pte(txtmsg)
 	strTextBody = strTextBody & " " & txtmsg & vbCrLf
 	objFileLog.close 	
 end sub
-
+							
 function sendmail() 
 on error resume next 
- strSMTPFrom = "checktimbra@datamanagement.it" 
- strSMTPRelay = "mail2.datamanagement.it" 
+strSMTPFrom = "checktminer@baba.com" 
+strSMTPRelay = "mail2.server.com" 
  Set oMessage = CreateObject("CDO.Message")
  oMessage.Configuration.Fields.Item("http://schemas.microsoft.com/cdo/configuration/sendusing") = 2 
  oMessage.Configuration.Fields.Item("http://schemas.microsoft.com/cdo/configuration/smtpserver") = strSMTPRelay
