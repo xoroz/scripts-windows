@@ -16,6 +16,7 @@ blnCheck = 0
 blnError = 0
 
 'TODO - LOG error and EMAIL 
+'BUG: MUST ADD PROCESS WTEE TO LOG FROM THIS CALL
 
 '---------- EDITARE QUI
 FILEDIR="c:\temp\logs\"
